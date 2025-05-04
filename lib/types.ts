@@ -12,6 +12,7 @@ export interface Player {
   first_name?: string;
   last_name?: string;
   position?: string;
+  abbreviation: string;
   team?: {
     id: number;
     abbreviation: string;
