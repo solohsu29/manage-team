@@ -1,102 +1,106 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useInView } from "react-intersection-observer";
-import { Player } from "@/lib/types"; // Should be Team if you're rendering teams
+import { Player } from "@/lib/types";
 import PlayerCard from "@/components/players/PlayerCard";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { BalldontlieAPI } from "@balldontlie/sdk";
 
 const api = new BalldontlieAPI({ apiKey: "105b1e70-c54c-49f1-ac89-4d9da6b3ff81" });
-
-const ITEMS_PER_PAGE = 5; // Smaller chunks for scroll feel
+const ITEMS_PER_PAGE = 10;
 
 export default function PlayersList() {
-  const [teams, setTeams] = useState<Player[]>([]);
-  const [displayedTeams, setDisplayedTeams] = useState<Player[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [nextCursor, setNextCursor] = useState<number | null>(0); // start from 0
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { ref, inView } = useInView();
 
-  useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await api.nba.getTeams();
-        setTeams(response.data);
-        setDisplayedTeams(response.data.slice(0, ITEMS_PER_PAGE));
-      } catch (err) {
-        setError("Error loading teams. Please try again.");
-        toast({
-          title: "Error",
-          description: "Failed to load teams. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchPlayers = async (cursor: number | null) => {
+    if (players?.length >= 100){
+      setNextCursor(null)
+      setIsLoading(false)
+      return
+    }
+    try {
+      setIsLoading(true);
+      const response = await api.nba.getPlayers({
+        per_page: ITEMS_PER_PAGE,
+        cursor: cursor ?? 0,
+      });
 
-    fetchTeams();
+      if (response?.data) {
+        setPlayers((prev) => [...prev, ...response?.data].slice(0, 100)); 
+        setNextCursor(response.meta?.next_cursor ?? null);
+      }
+    } catch (err) {
+
+
+      if ((err as any).response?.status === 429) {
+        setTimeout(() => fetchPlayers(cursor), 5000); // retry after 5s
+      }
+      setError("Failed to load players.");
+      toast({
+        title: "Error",
+        description: "Failed to load players. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (nextCursor === 0) fetchPlayers(0); // first load
   }, []);
 
-  // Load more teams on scroll into view
+  const hasFetchedRef = useRef(false);
+
   useEffect(() => {
-    if (inView && !isLoading && hasMore) {
-      const nextPage = currentPage + 1;
-      const nextItems = teams.slice(0, nextPage * ITEMS_PER_PAGE);
-      setDisplayedTeams(nextItems);
-      setCurrentPage(nextPage);
+    if (inView && !isLoading && nextCursor !== null && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchPlayers(nextCursor).finally(() => {
+        hasFetchedRef.current = false;
+      });
     }
   }, [inView]);
-
-  const hasMore = displayedTeams.length < teams.length;
-
-  if (error && teams.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[200px] p-8">
-        <p className="text-destructive mb-4">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  
+  
 
   return (
     <div className="space-y-6">
-      {/* Team Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {displayedTeams.map((team) => (
-          <PlayerCard key={team.id} player={team} />
-        ))}
-      </div>
-
-      {/* Infinite Scroll Trigger */}
-      {hasMore && !isLoading &&  <div ref={ref} className="flex justify-center p-4">
-    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-  </div>}
-
-      {/* End Message */}
-      {!hasMore && displayedTeams.length > 0 && (
-        <p className="text-center text-muted-foreground py-4">
-          You&apos;ve reached the end of the list.
-        </p>
-      )}
-
-      {/* Loader */}
-      {isLoading && (
-        <div className="flex justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      {/* Scrollable player card area */}
+      <div className="max-h-[600px] overflow-y-auto px-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {players.map((player) => (
+            <PlayerCard key={player?.full_name} player={player} />
+          ))}
         </div>
-      )}
+
+        {/* Infinite scroll trigger */}
+        {nextCursor !== null && !isLoading && (
+          <div ref={ref} className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
+
+        {/* End message */}
+        {nextCursor === null && players.length > 0 && (
+          <p className="text-center text-muted-foreground py-4">
+            You&apos;ve reached the end of the list.
+          </p>
+        )}
+
+        {/* Loading spinner */}
+        {isLoading && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

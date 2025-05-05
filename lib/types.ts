@@ -12,10 +12,10 @@ export interface Player {
   first_name?: string;
   last_name?: string;
   position?: string;
-  abbreviation: string;
+  abbreviation?: string;
   team?: {
     id: number;
-    abbreviation: string;
+    abbreviation?: string;
     city: string;
     conference: string;
     division: string;

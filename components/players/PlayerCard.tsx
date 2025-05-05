@@ -80,12 +80,12 @@ export default function PlayerCard({ player }: { player: Player }) {
             <h3 className="font-semibold text-lg tracking-tight">
               {player.first_name} {player.last_name}
             </h3>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p><span className="font-medium">Division:</span> {player?.division || "N/A"}</p>
-              <p><span className="font-medium">Name:</span> {player?.full_name || "N/A"}</p>
-              <p><span className="font-medium">City:</span> {player.city || "N/A"}</p>
-              <p><span className="font-medium">Conference:</span> {player?.conference ||"N/A"}</p>
-            </div>
+            <p><span className="font-medium">Team:</span> {player.team?.full_name || "N/A"}</p>
+<p><span className="font-medium">Division:</span> {player.team?.division || "N/A"}</p>
+<p><span className="font-medium">City:</span> {player.team?.city || "N/A"}</p>
+<p><span className="font-medium">Conference:</span> {player.team?.conference || "N/A"}</p>
+<p><span className="font-medium">Position:</span> {player?.position || "N/A"}</p>
+
           </div>
         </CardContent>
         <CardFooter className="p-4 pt-0">
